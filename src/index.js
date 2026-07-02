@@ -90,6 +90,15 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
+// Resiliencia: los cortes transitorios de WhatsApp no deben tumbar el proceso.
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandledRejection:', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('uncaughtException:', err?.message || err);
+  // En la nube (Render) el contenedor se reinicia solo y la sesión persiste en disco.
+});
+
 main().catch((err) => {
   console.error('Fallo al iniciar:', err);
   process.exit(1);

@@ -81,11 +81,21 @@ export async function startWhatsApp(onMessage) {
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
       console.log(
-        `⚠️  Conexión cerrada (código ${code}).${loggedOut ? ' Sesión cerrada, borra la carpeta auth_wa/ y vuelve a escanear.' : ' Reintentando…'}`
+        `⚠️  Conexión cerrada (código ${code}).${loggedOut ? ' Sesión cerrada; borra el disco de estado y vuelve a vincular.' : ' Reintentando en 3s…'}`
       );
-      if (!loggedOut) startWhatsApp(onMessage);
+      if (!loggedOut) {
+        setTimeout(() => {
+          startWhatsApp(onMessage).catch((e) =>
+            console.error('Fallo al reconectar:', e.message)
+          );
+        }, 3000);
+      }
     }
   });
+
+  // Evita que un 'error' del websocket tumbe el proceso.
+  sock.ev.on('connection.update', () => {});
+  sock.ws?.on?.('error', (e) => console.error('WS error:', e?.message || e));
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
