@@ -7,6 +7,7 @@ import baileys, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  Browsers,
 } from '@whiskeysockets/baileys';
 
 const makeWASocket = baileys.default || baileys;
@@ -33,12 +34,14 @@ export async function startWhatsApp(onMessage) {
     version,
     logger,
     printQRInTerminal: false,
+    browser: Browsers.macOS('Desktop'),
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger),
     },
-    markOnlineOnConnect: true,
+    markOnlineOnConnect: false,
     syncFullHistory: false,
+    generateHighQualityLinkPreview: false,
   });
 
   sock.ev.on('creds.update', saveCreds);

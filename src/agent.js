@@ -2,7 +2,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
 import { toolDefs, runTool } from './tools/index.js';
 
-const client = new Anthropic({ apiKey: config.anthropicApiKey });
+const client = new Anthropic({
+  apiKey: config.anthropicApiKey,
+  maxRetries: 5,
+  timeout: 120000,
+});
 
 const SYSTEM = `Eres ${config.agentName}, asesora comercial de Inmobiliaria Aconcagua (iaconcagua.com), una de las inmobiliarias líderes de Chile (venta de casas y departamentos, precios aprox. entre 1.500 y 40.000 UF).
 
@@ -63,7 +67,8 @@ export async function responder(chatId, textoUsuario) {
   trim(history);
 
   for (let paso = 0; paso < 8; paso++) {
-    const resp = await client.messages.create({
+    // Streaming + finalMessage: evita cortes ("Premature close") en respuestas largas.
+    const stream = client.messages.stream({
       model: config.model,
       max_tokens: 2500,
       system: SYSTEM,
@@ -72,6 +77,7 @@ export async function responder(chatId, textoUsuario) {
       tools: toolDefs,
       messages: history,
     });
+    const resp = await stream.finalMessage();
 
     history.push({ role: 'assistant', content: resp.content });
 
