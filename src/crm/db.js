@@ -91,6 +91,10 @@ export function buscarProyectosCache(q) {
     .all(like, like, like);
 }
 
+export function dumpProyectos() {
+  return db.prepare('SELECT slug, nombre, catalogo, url, precio_uf_desde, detalle FROM proyectos').all();
+}
+
 export function proyectosStats() {
   const total = db.prepare('SELECT COUNT(*) n FROM proyectos').get().n;
   const conPrecio = db.prepare('SELECT COUNT(*) n FROM proyectos WHERE precio_uf_desde IS NOT NULL').get().n;
