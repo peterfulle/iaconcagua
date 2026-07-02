@@ -1,0 +1,6 @@
+node_modules/
+.env
+auth_wa/
+.browser_data/
+*.log
+.DS_Store

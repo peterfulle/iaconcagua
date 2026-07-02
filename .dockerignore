@@ -1,0 +1,8 @@
+node_modules
+auth_wa
+.browser_data
+.env
+.git
+*.log
+npm-debug.log*
+.DS_Store

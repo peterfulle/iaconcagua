@@ -1,0 +1,35 @@
+# Blueprint de Render (alternativa a crear el servicio por API).
+# Requiere un plan pago: el bot debe estar SIEMPRE encendido y con disco
+# persistente para conservar la sesión de WhatsApp entre reinicios.
+services:
+  - type: web
+    name: iaconcagua-chatbot
+    runtime: docker
+    plan: starter          # always-on (el free se apaga por inactividad)
+    region: oregon
+    healthCheckPath: /health
+    disk:
+      name: estado
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false        # se define en el dashboard (secreto)
+      - key: PAIR_NUMBER
+        sync: false        # tu número WhatsApp, solo dígitos (ej: 56930093673)
+      - key: MODEL
+        value: claude-opus-4-8
+      - key: EFFORT
+        value: high
+      - key: AGENT_NAME
+        value: Valentina
+      - key: HEADLESS
+        value: "true"
+      - key: AUTH_DIR
+        value: /data/auth_wa
+      - key: BROWSER_DATA_DIR
+        value: /data/.browser_data
+      - key: GROUP_MODE
+        value: mention
+      - key: GROUP_TRIGGERS
+        value: aconcagua,cotiza,cotización,departamento,depto,proyecto,valentina
