@@ -134,7 +134,10 @@ export async function startWhatsApp(onMessage) {
           m.message.extendedTextMessage?.contextInfo?.mentionedJid || []
         ).includes(sock.user?.id?.replace(/:\d+/, '') || '');
 
-        const reply = makeReplier(sock, chatId, m);
+        // WhatsApp puede entregar el remitente como @lid (privacidad de número).
+        // Para que el envío se entregue, respondemos al JID de teléfono real.
+        const replyJid = destinoRespuesta(m, isGroup);
+        const reply = makeReplier(sock, replyJid, m);
 
         await onMessage({ chatId, sender, text: text.trim(), isGroup, mentioned, reply });
       } catch (err) {
@@ -144,6 +147,20 @@ export async function startWhatsApp(onMessage) {
   });
 
   return sock;
+}
+
+/**
+ * Devuelve el JID al que hay que responder. En grupos, el grupo.
+ * En DM, prefiere el JID de teléfono (@s.whatsapp.net) si el remitente vino como @lid.
+ */
+function destinoRespuesta(m, isGroup) {
+  const k = m.key || {};
+  if (isGroup) return k.remoteJid;
+  const candidatos = [k.remoteJidAlt, k.senderPn, k.participantAlt, k.remoteJid, k.participant];
+  const pn = candidatos.find(
+    (j) => typeof j === 'string' && j.endsWith('@s.whatsapp.net')
+  );
+  return pn || k.remoteJid;
 }
 
 /** Crea una función reply() que simula presencia humana (leído + "escribiendo…"). */
@@ -164,7 +181,22 @@ function makeReplier(sock, chatId, incoming) {
         /* ok */
       }
       await new Promise((r) => setTimeout(r, wait));
-      await sock.sendMessage(chatId, { text: texto });
+      try {
+        await sock.sendMessage(chatId, { text: texto });
+        console.log(`📤 enviado a ${chatId}`);
+      } catch (e) {
+        console.error(`❌ fallo al enviar a ${chatId}:`, e?.message || e);
+        // Reintento al remoteJid original por si el JID resuelto no aplica.
+        const alt = incoming?.key?.remoteJid;
+        if (alt && alt !== chatId) {
+          try {
+            await sock.sendMessage(alt, { text: texto });
+            console.log(`📤 enviado (fallback) a ${alt}`);
+          } catch (e2) {
+            console.error('❌ fallback también falló:', e2?.message || e2);
+          }
+        }
+      }
       try {
         await sock.sendPresenceUpdate('paused', chatId);
       } catch {
