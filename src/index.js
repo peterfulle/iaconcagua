@@ -16,6 +16,7 @@ import { responder } from './agent.js';
 import { splitMessage, typingDelay } from './humanize.js';
 import { closeBrowser } from './scraper/browser.js';
 import { handleAdmin } from './admin/server.js';
+import { handleChat } from './webchat/server.js';
 
 // Servidor de salud: Render (Web Service) necesita un puerto abierto.
 // Además muestra el estado de WhatsApp y el código de vinculación.
@@ -23,8 +24,9 @@ function startHealthServer() {
   const server = http.createServer(async (req, res) => {
     try {
       if (await handleAdmin(req, res)) return;
+      if (await handleChat(req, res)) return;
     } catch (e) {
-      console.error('admin error:', e.message);
+      console.error('router error:', e.message);
       if (!res.headersSent) { res.writeHead(500); res.end('error'); }
       return;
     }
