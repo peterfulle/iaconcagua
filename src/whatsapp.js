@@ -134,10 +134,14 @@ export async function startWhatsApp(onMessage) {
           m.message.extendedTextMessage?.contextInfo?.mentionedJid || []
         ).includes(sock.user?.id?.replace(/:\d+/, '') || '');
 
+        // DIAGNÓSTICO: registra todos los identificadores del remitente.
+        console.log('🔑 key=', JSON.stringify(m.key));
+
         // WhatsApp puede entregar el remitente como @lid (privacidad de número).
-        // Para que el envío se entregue, respondemos al JID de teléfono real.
-        const replyJid = destinoRespuesta(m, isGroup);
-        const reply = makeReplier(sock, replyJid, m);
+        // Enviamos a TODOS los JID candidatos para descartar problemas de mapeo.
+        const targets = destinosRespuesta(m, isGroup);
+        console.log('🎯 targets=', targets.join(', '));
+        const reply = makeReplier(sock, targets, m);
 
         await onMessage({ chatId, sender, text: text.trim(), isGroup, mentioned, reply });
       } catch (err) {
@@ -150,21 +154,20 @@ export async function startWhatsApp(onMessage) {
 }
 
 /**
- * Devuelve el JID al que hay que responder. En grupos, el grupo.
- * En DM, prefiere el JID de teléfono (@s.whatsapp.net) si el remitente vino como @lid.
+ * Devuelve la lista de JID candidatos a los que responder (sin duplicados).
+ * En grupos, solo el grupo. En DM, el remoteJid original + cualquier JID de teléfono.
  */
-function destinoRespuesta(m, isGroup) {
+function destinosRespuesta(m, isGroup) {
   const k = m.key || {};
-  if (isGroup) return k.remoteJid;
-  const candidatos = [k.remoteJidAlt, k.senderPn, k.participantAlt, k.remoteJid, k.participant];
-  const pn = candidatos.find(
-    (j) => typeof j === 'string' && j.endsWith('@s.whatsapp.net')
-  );
-  return pn || k.remoteJid;
+  if (isGroup) return [k.remoteJid].filter(Boolean);
+  const candidatos = [k.remoteJid, k.remoteJidAlt, k.senderPn, k.participantAlt, k.participant];
+  return [...new Set(candidatos.filter((j) => typeof j === 'string' && j))];
 }
 
 /** Crea una función reply() que simula presencia humana (leído + "escribiendo…"). */
-function makeReplier(sock, chatId, incoming) {
+function makeReplier(sock, targets, incoming) {
+  const jids = Array.isArray(targets) ? targets : [targets];
+  const primary = jids[0];
   return async function reply(chunks, { typingMs = 1200 } = {}) {
     const list = Array.isArray(chunks) ? chunks : [chunks];
     try {
@@ -176,29 +179,22 @@ function makeReplier(sock, chatId, incoming) {
       const texto = list[i];
       const wait = typeof typingMs === 'function' ? typingMs(texto) : typingMs;
       try {
-        await sock.sendPresenceUpdate('composing', chatId);
+        await sock.sendPresenceUpdate('composing', primary);
       } catch {
         /* ok */
       }
       await new Promise((r) => setTimeout(r, wait));
-      try {
-        await sock.sendMessage(chatId, { text: texto });
-        console.log(`📤 enviado a ${chatId}`);
-      } catch (e) {
-        console.error(`❌ fallo al enviar a ${chatId}:`, e?.message || e);
-        // Reintento al remoteJid original por si el JID resuelto no aplica.
-        const alt = incoming?.key?.remoteJid;
-        if (alt && alt !== chatId) {
-          try {
-            await sock.sendMessage(alt, { text: texto });
-            console.log(`📤 enviado (fallback) a ${alt}`);
-          } catch (e2) {
-            console.error('❌ fallback también falló:', e2?.message || e2);
-          }
+      // Envía a todos los JID candidatos (diagnóstico de mapeo @lid).
+      for (const jid of jids) {
+        try {
+          const r = await sock.sendMessage(jid, { text: texto });
+          console.log(`📤 enviado a ${jid} (id ${r?.key?.id || '?'})`);
+        } catch (e) {
+          console.error(`❌ fallo al enviar a ${jid}:`, e?.message || e);
         }
       }
       try {
-        await sock.sendPresenceUpdate('paused', chatId);
+        await sock.sendPresenceUpdate('paused', primary);
       } catch {
         /* ok */
       }
