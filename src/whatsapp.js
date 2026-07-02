@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import qrcode from 'qrcode-terminal';
 import pino from 'pino';
 import { config } from './config.js';
@@ -77,13 +78,24 @@ export async function startWhatsApp(onMessage) {
       console.log('✅ WhatsApp conectado. El agente está en línea.\n');
     }
     if (connection === 'close') {
-      _status = 'reconectando';
       const code = lastDisconnect?.error?.output?.statusCode;
       const loggedOut = code === DisconnectReason.loggedOut;
-      console.log(
-        `⚠️  Conexión cerrada (código ${code}).${loggedOut ? ' Sesión cerrada; borra el disco de estado y vuelve a vincular.' : ' Reintentando en 3s…'}`
-      );
-      if (!loggedOut) {
+      if (loggedOut) {
+        // Sesión inválida (401): auto-sanar → borrar y volver a pedir código.
+        _status = 'regenerando_sesion';
+        console.log('🔁 Sesión cerrada por WhatsApp (401). Limpiando y generando código nuevo…');
+        rm(AUTH_DIR, { recursive: true, force: true })
+          .catch(() => {})
+          .finally(() => {
+            setTimeout(() => {
+              startWhatsApp(onMessage).catch((e) =>
+                console.error('Fallo al regenerar sesión:', e.message)
+              );
+            }, 2000);
+          });
+      } else {
+        _status = 'reconectando';
+        console.log(`⚠️  Conexión cerrada (código ${code}). Reintentando en 3s…`);
         setTimeout(() => {
           startWhatsApp(onMessage).catch((e) =>
             console.error('Fallo al reconectar:', e.message)
