@@ -37,6 +37,9 @@ export const config = {
   // Puerto para el pequeño servidor de salud (Render Web Service lo necesita).
   port: Number(process.env.PORT || 3000),
 
+  // URL pública del servicio (para servir el logo en los emails).
+  publicUrl: process.env.PUBLIC_URL || 'https://iaconcagua-chatbot.onrender.com',
+
   // Proxy residencial/móvil para el socket de WhatsApp (evita el soft-ban de
   // datacenter). Ej: socks5://user:pass@host:puerto  o  http://user:pass@host:puerto
   proxyUrl: process.env.PROXY_URL || '',

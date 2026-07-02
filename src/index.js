@@ -1,5 +1,16 @@
 import http from 'node:http';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let LOGO_PNG = null;
+try {
+  LOGO_PNG = readFileSync(path.join(__dirname, 'logo.png'));
+} catch {
+  LOGO_PNG = null;
+}
 import { startWhatsApp, getWaStatus } from './whatsapp.js';
 import { responder } from './agent.js';
 import { splitMessage, typingDelay } from './humanize.js';
@@ -10,6 +21,10 @@ import { closeBrowser } from './scraper/browser.js';
 function startHealthServer() {
   const server = http.createServer((req, res) => {
     const wa = getWaStatus();
+    if (req.url === '/logo.png' && LOGO_PNG) {
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400' });
+      return res.end(LOGO_PNG);
+    }
     if (req.url === '/health' || req.url === '/healthz') {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: true, wa }));
