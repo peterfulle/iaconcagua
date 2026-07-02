@@ -13,6 +13,22 @@ import baileys, {
 const makeWASocket = baileys.default || baileys;
 const AUTH_DIR = config.authDir;
 
+// Proxy opcional (residencial/móvil) para que WhatsApp no vea una IP de datacenter.
+async function buildProxyAgent() {
+  if (!config.proxyUrl) return undefined;
+  try {
+    if (config.proxyUrl.startsWith('socks')) {
+      const { SocksProxyAgent } = await import('socks-proxy-agent');
+      return new SocksProxyAgent(config.proxyUrl);
+    }
+    const { HttpsProxyAgent } = await import('https-proxy-agent');
+    return new HttpsProxyAgent(config.proxyUrl);
+  } catch (e) {
+    console.error('No pude configurar el proxy:', e?.message || e);
+    return undefined;
+  }
+}
+
 const logger = pino({ level: 'silent' });
 
 // Estado observable (para el endpoint de salud).
@@ -29,12 +45,16 @@ export function getWaStatus() {
 export async function startWhatsApp(onMessage) {
   const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
   const { version } = await fetchLatestBaileysVersion();
+  const agent = await buildProxyAgent();
+  if (agent) console.log('🌐 Usando proxy para WhatsApp');
 
   const sock = makeWASocket({
     version,
     logger,
     printQRInTerminal: false,
     browser: Browsers.macOS('Desktop'),
+    agent,
+    fetchAgent: agent,
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(state.keys, logger),
