@@ -1,5 +1,25 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { htmlToPdf } from '../scraper/browser.js';
 import { valorUF } from '../tools/uf.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Logo de iaconcagua embebido como data URI.
+let LOGO_DATA_URI = '';
+try {
+  const logo = readFileSync(path.join(__dirname, '..', 'logo.png'));
+  LOGO_DATA_URI = `data:image/png;base64,${logo.toString('base64')}`;
+} catch {
+  LOGO_DATA_URI = '';
+}
+
+// Paleta oficial iaconcagua.com
+const VERDE = '#1A963A';
+const LIMA = '#8DC703';
+const GRIS = '#414141';
+const GRIS2 = '#8e8e8e';
 
 const clp = (n) => '$' + Math.round(n).toLocaleString('es-CL');
 const uf = (n) => 'UF ' + Number(n).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -16,8 +36,6 @@ function esc(s) {
 
 /**
  * Genera una cotización en PDF (Buffer) para una unidad, con UF del día en vivo.
- * datos: { proyecto, ubicacion, tipologia, dormitorios, banos, superficie_m2,
- *          precio_uf, cliente_nombre, cliente_email, url }
  * Devuelve { buffer, cotizacion }.
  */
 export async function generarCotizacionPDF(datos) {
@@ -48,40 +66,43 @@ export async function generarCotizacionPDF(datos) {
     .map(([k, v]) => `<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`)
     .join('');
 
+  const logoHtml = LOGO_DATA_URI
+    ? `<img src="${LOGO_DATA_URI}" alt="Inmobiliaria Aconcagua" style="height:34px">`
+    : `<div style="font-size:22px;font-weight:700;color:${VERDE}">iaconcagua<span style="color:${GRIS}">.com</span></div>`;
+
   const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans+Condensed:ital,wght@0,300;0,700;1,300&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; margin: 0; font-size: 13px; }
-  .brand { background: #0b3b6f; color: #fff; padding: 22px 26px; display: flex; justify-content: space-between; align-items: center; }
-  .brand h1 { margin: 0; font-size: 20px; letter-spacing: .3px; }
-  .brand .sub { font-size: 11px; opacity: .85; }
-  .brand .doc { text-align: right; font-size: 11px; }
-  .brand .doc b { font-size: 13px; }
-  .wrap { padding: 26px; }
-  h2 { color: #0b3b6f; font-size: 15px; margin: 22px 0 8px; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
+  body { font-family: "Open Sans Condensed", "Arial Narrow", Arial, sans-serif; color: ${GRIS}; margin: 0; font-size: 14px; }
+  .top { display: flex; justify-content: space-between; align-items: center; padding: 24px 26px 16px; }
+  .top .doc { text-align: right; font-size: 12px; color: ${GRIS2}; line-height: 1.5; }
+  .top .doc b { color: ${VERDE}; font-size: 15px; letter-spacing: .5px; }
+  .bar { height: 6px; background: linear-gradient(90deg, ${VERDE} 0%, ${VERDE} 55%, ${LIMA} 100%); }
+  .wrap { padding: 22px 26px; }
+  .pill { display:inline-block; background:${LIMA}; color:#1c3d00; border-radius:999px; padding:4px 12px; font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; }
+  h2 { color: ${VERDE}; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; margin: 22px 0 8px; border-bottom: 2px solid #eef3ea; padding-bottom: 6px; }
   table { width: 100%; border-collapse: collapse; }
-  td.k { color: #6b7280; width: 38%; padding: 7px 0; }
-  td.v { font-weight: 600; padding: 7px 0; }
+  td.k { color: ${GRIS2}; width: 38%; padding: 7px 0; }
+  td.v { font-weight: 700; padding: 7px 0; }
   .cliente td { padding: 5px 0; }
-  .precio { margin-top: 14px; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden; }
-  .precio .row { display: flex; justify-content: space-between; padding: 12px 16px; }
-  .precio .row + .row { border-top: 1px solid #eef2f7; }
-  .precio .total { background: #f0f6ff; }
-  .precio .total .big { font-size: 22px; color: #0b3b6f; font-weight: 800; }
-  .muted { color: #6b7280; font-size: 11px; }
-  .nota { margin-top: 18px; background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 12px 14px; font-size: 11px; color: #555; line-height: 1.5; }
-  .foot { margin-top: 22px; text-align: center; color: #9ca3af; font-size: 10.5px; }
-  .pill { display:inline-block; background:#e8f0fe; color:#0b3b6f; border-radius:999px; padding:3px 10px; font-size:11px; font-weight:600; }
+  .precio { margin-top: 14px; border: 1px solid #e6ece0; border-radius: 12px; overflow: hidden; }
+  .precio .row { display: flex; justify-content: space-between; align-items:center; padding: 13px 18px; }
+  .precio .row + .row { border-top: 1px solid #eef3ea; }
+  .precio .total { background: #f2f8e8; }
+  .precio .total .big { font-size: 26px; color: ${VERDE}; font-weight: 700; letter-spacing:.5px; }
+  .muted { color: ${GRIS2}; font-size: 12px; }
+  .nota { margin-top: 18px; background: #f8faf5; border: 1px solid #eef3ea; border-left: 4px solid ${LIMA}; border-radius: 8px; padding: 12px 14px; font-size: 12px; color: #5c5c5c; line-height: 1.55; }
+  .foot { margin-top: 24px; text-align: center; color: ${GRIS2}; font-size: 11px; }
+  .foot b { color: ${VERDE}; }
 </style></head><body>
-  <div class="brand">
-    <div>
-      <h1>Inmobiliaria Aconcagua</h1>
-      <div class="sub">Venta de casas y departamentos · iaconcagua.com</div>
-    </div>
-    <div class="doc">
-      COTIZACIÓN<br><b>${cotizacion.folio}</b><br>${cotizacion.fecha}
-    </div>
+  <div class="top">
+    <div>${logoHtml}</div>
+    <div class="doc">COTIZACIÓN<br><b>${cotizacion.folio}</b><br>${cotizacion.fecha}</div>
   </div>
+  <div class="bar"></div>
 
   <div class="wrap">
     <span class="pill">Cotización referencial</span>
@@ -111,7 +132,7 @@ export async function generarCotizacionPDF(datos) {
     </div>
 
     <div class="foot">
-      Inmobiliaria Aconcagua · 35 años de experiencia · www.iaconcagua.com<br>
+      <b>Inmobiliaria Aconcagua</b> · 35 años de experiencia · www.iaconcagua.com<br>
       Documento generado automáticamente el ${cotizacion.fecha}.
     </div>
   </div>
