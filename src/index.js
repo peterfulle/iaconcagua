@@ -15,6 +15,7 @@ import { startWhatsApp, getWaStatus } from './whatsapp.js';
 import { responder } from './agent.js';
 import { splitMessage, typingDelay } from './humanize.js';
 import { closeBrowser } from './scraper/browser.js';
+import { programarRefresco } from './scraper/catalogo-cache.js';
 import { handleAdmin } from './admin/server.js';
 import { handleChat } from './webchat/server.js';
 import { handleZavuWebhook } from './whatsapp/zavu.js';
@@ -111,6 +112,7 @@ async function main() {
   console.log(`   Modelo: ${config.model} (effort ${config.effort})`);
   console.log(`   Navegador headless: ${config.headless}`);
   startHealthServer();
+  programarRefresco(6); // refresca el catálogo al inicio y cada 6h
   if (config.disableWhatsapp) {
     console.log('📴 WhatsApp deshabilitado (DISABLE_WHATSAPP=true). Solo chat web + CRM.');
   } else {

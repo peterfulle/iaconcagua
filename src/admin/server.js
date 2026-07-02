@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { config } from '../config.js';
-import { listLeads, getLead, updateEstado, stats, exportCsv } from '../crm/db.js';
+import { listLeads, getLead, updateEstado, stats, exportCsv, proyectosStats } from '../crm/db.js';
+import { refrescarCatalogo } from '../scraper/catalogo-cache.js';
 
 const VERDE = '#1A963A';
 const LIMA = '#8DC703';
@@ -96,7 +97,11 @@ export async function handleAdmin(req, res) {
     res.end(dashboardHtml());
     return true;
   }
-  if (p === '/admin/api/stats') return json(res, 200, stats()), true;
+  if (p === '/admin/api/stats') return json(res, 200, { ...stats(), catalogo: proyectosStats() }), true;
+  if (p === '/admin/api/refrescar' && req.method === 'POST') {
+    refrescarCatalogo().catch(() => {});
+    return json(res, 200, { ok: true, mensaje: 'Refresco iniciado en segundo plano' }), true;
+  }
   if (p === '/admin/api/leads') {
     return json(res, 200, listLeads({
       q: url.searchParams.get('q') || '',

@@ -41,7 +41,62 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now','localtime'))
   );
   CREATE INDEX IF NOT EXISTS idx_msg_lead ON mensajes(lead_id);
+
+  CREATE TABLE IF NOT EXISTS proyectos (
+    slug TEXT PRIMARY KEY,
+    nombre TEXT,
+    catalogo TEXT,
+    url TEXT,
+    precio_uf_desde REAL,
+    detalle TEXT,
+    updated_at TEXT DEFAULT (datetime('now','localtime'))
+  );
 `);
+
+// ---- Caché de proyectos (catálogo iaconcagua) ----
+export function upsertProyecto(p) {
+  db.prepare(
+    `INSERT INTO proyectos (slug, nombre, catalogo, url, precio_uf_desde, detalle, updated_at)
+     VALUES (@slug, @nombre, @catalogo, @url, @precio_uf_desde, @detalle, datetime('now','localtime'))
+     ON CONFLICT(slug) DO UPDATE SET
+       nombre=excluded.nombre, catalogo=excluded.catalogo, url=excluded.url,
+       precio_uf_desde=excluded.precio_uf_desde, detalle=excluded.detalle,
+       updated_at=datetime('now','localtime')`
+  ).run({
+    slug: p.slug,
+    nombre: p.nombre || p.slug,
+    catalogo: p.catalogo || '',
+    url: p.url || '',
+    precio_uf_desde: p.precio_uf_desde ?? null,
+    detalle: p.detalle || '',
+  });
+}
+
+export function listProyectosCache() {
+  return db.prepare('SELECT slug, nombre, catalogo, url, precio_uf_desde FROM proyectos ORDER BY precio_uf_desde ASC').all();
+}
+
+export function getProyectoCache(slug) {
+  return db.prepare('SELECT * FROM proyectos WHERE slug = ?').get(slug);
+}
+
+export function buscarProyectosCache(q) {
+  const like = `%${q}%`;
+  return db
+    .prepare(
+      `SELECT slug, nombre, catalogo, url, precio_uf_desde FROM proyectos
+       WHERE nombre LIKE ? OR catalogo LIKE ? OR detalle LIKE ?
+       ORDER BY precio_uf_desde ASC`
+    )
+    .all(like, like, like);
+}
+
+export function proyectosStats() {
+  const total = db.prepare('SELECT COUNT(*) n FROM proyectos').get().n;
+  const conPrecio = db.prepare('SELECT COUNT(*) n FROM proyectos WHERE precio_uf_desde IS NOT NULL').get().n;
+  const ultima = db.prepare('SELECT MAX(updated_at) u FROM proyectos').get().u;
+  return { total, conPrecio, ultima };
+}
 
 const CAMPOS = [
   'nombre', 'rut', 'telefono', 'email', 'proyecto_interes',

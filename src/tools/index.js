@@ -2,7 +2,12 @@ import { listarProyectos, verProyecto, navegar } from '../scraper/iaconcagua.js'
 import { valorUF, ufAClp } from './uf.js';
 import { enviarCotizacionPorEmail } from '../quote/index.js';
 import { upsertLeadData, marcarCotizacion } from '../crm/db.js';
+import { listProyectosCache, getProyectoCache, buscarProyectosCache } from '../crm/db.js';
 import { avisarLeadCaliente } from '../crm/notify.js';
+
+const fmtUF = (n) => (n ? `desde UF ${Number(n).toLocaleString('es-CL')}` : '');
+const fmtLista = (arr) =>
+  arr.map((x) => `- ${x.nombre} ${fmtUF(x.precio_uf_desde)} [slug: ${x.slug}]`).join('\n');
 
 // Definiciones que ve Claude (function calling).
 export const toolDefs = [
@@ -13,9 +18,22 @@ export const toolDefs = [
     input_schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
+    name: 'buscar_proyectos',
+    description:
+      'Busca proyectos en el catálogo por comuna, ciudad o palabra clave, ordenados por precio (más barato primero). Devuelve nombre, precio "desde" en UF y slug. Úsalo para "¿qué tienen en X?" o "el más barato en X" (ej: Ñuñoa, Santiago Centro, Concón).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        consulta: { type: 'string', description: 'Comuna, ciudad o palabra clave.' },
+      },
+      required: ['consulta'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'ver_proyecto',
     description:
-      'Abre en vivo la ficha de un proyecto de iaconcagua.com y devuelve su texto (precios en UF, tipologías, dormitorios, ubicación, estado de venta). Usa el "slug" del catálogo (ej: "parque-quilicura") o una URL completa. Úsalo siempre antes de dar precios o cotizar: los datos deben venir del sitio, nunca inventados.',
+      'Devuelve la ficha de un proyecto (precios en UF, tipologías, dormitorios, ubicación) desde el catálogo actualizado. Usa el "slug" (ej: "parque-quilicura"). Úsalo antes de dar precios o cotizar: los datos vienen del sitio, nunca inventados.',
     input_schema: {
       type: 'object',
       properties: {
@@ -116,14 +134,28 @@ export async function runTool(name, input, ctx = {}) {
         return `Datos del cliente guardados en el CRM (lead #${lead.id}).`;
       }
       case 'listar_proyectos': {
+        const cache = listProyectosCache();
+        if (cache.length) {
+          return `Proyectos publicados en iaconcagua.com (${cache.length}, más baratos primero):\n${fmtLista(cache)}`;
+        }
         const p = await listarProyectos();
         if (!p.length) return 'No se pudieron leer proyectos del sitio en este momento.';
-        return (
-          `Proyectos publicados en iaconcagua.com (${p.length}):\n` +
-          p.map((x) => `- ${x.nombre}  [slug: ${x.slug}]`).join('\n')
-        );
+        return `Proyectos publicados (${p.length}):\n` + p.map((x) => `- ${x.nombre} [slug: ${x.slug}]`).join('\n');
+      }
+      case 'buscar_proyectos': {
+        const r = buscarProyectosCache(input.consulta);
+        if (!r.length) return `No encontré proyectos que coincidan con "${input.consulta}" en el catálogo.`;
+        return `Proyectos para "${input.consulta}" (${r.length}, más baratos primero):\n${fmtLista(r)}`;
       }
       case 'ver_proyecto': {
+        const c = getProyectoCache(input.slug);
+        if (c && c.detalle) {
+          return (
+            `Ficha: ${c.nombre}\nURL: ${c.url}\n` +
+            (c.precio_uf_desde ? `Precio desde: UF ${c.precio_uf_desde.toLocaleString('es-CL')}\n` : '') +
+            `\n--- Contenido ---\n${c.detalle}`
+          );
+        }
         const d = await verProyecto(input.slug);
         return (
           `Ficha en vivo: ${d.titulo}\nURL: ${d.url}\n` +
