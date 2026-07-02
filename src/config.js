@@ -41,6 +41,17 @@ export const config = {
   // datacenter). Ej: socks5://user:pass@host:puerto  o  http://user:pass@host:puerto
   proxyUrl: process.env.PROXY_URL || '',
 
+  // Envío de email (cotización PDF). Usa Resend (RESEND_API_KEY) o SMTP.
+  emailFrom: process.env.EMAIL_FROM || 'Inmobiliaria Aconcagua <onboarding@resend.dev>',
+  resendApiKey: process.env.RESEND_API_KEY || '',
+  smtp: {
+    host: process.env.SMTP_HOST || '',
+    port: Number(process.env.SMTP_PORT || 587),
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+  },
+
   groupMode: (process.env.GROUP_MODE || 'mention').toLowerCase(),
   groupTriggers: list(process.env.GROUP_TRIGGERS),
   allowedGroups: list(process.env.ALLOWED_GROUPS),

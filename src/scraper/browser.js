@@ -114,6 +114,22 @@ export async function withPage(urlOrPath, fn) {
   }
 }
 
+/** Renderiza HTML a PDF (Buffer) usando Chromium headless. */
+export async function htmlToPdf(html) {
+  const context = await getContext();
+  const page = await context.newPage();
+  try {
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    return await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '14mm', bottom: '16mm', left: '13mm', right: '13mm' },
+    });
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
 export async function closeBrowser() {
   if (_context) {
     await _context.close().catch(() => {});

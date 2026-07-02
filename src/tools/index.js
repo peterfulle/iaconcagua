@@ -1,5 +1,6 @@
 import { listarProyectos, verProyecto, navegar } from '../scraper/iaconcagua.js';
 import { valorUF, ufAClp } from './uf.js';
+import { enviarCotizacionPorEmail } from '../quote/index.js';
 
 // Definiciones que ve Claude (function calling).
 export const toolDefs = [
@@ -41,6 +42,28 @@ export const toolDefs = [
         monto_uf: { type: 'number', description: 'Precio en UF a convertir.' },
       },
       required: ['monto_uf'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'enviar_cotizacion_pdf',
+    description:
+      'Genera una cotización formal en PDF (con el precio en UF convertido a pesos usando el valor UF del día) y la envía por email al cliente, con la marca de Inmobiliaria Aconcagua. Úsalo cuando el cliente pide una cotización formal o que se la envíes por correo. Antes debes tener el precio en UF (desde ver_proyecto) y el email del cliente. Pregunta el email y el nombre si no los tienes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        proyecto: { type: 'string', description: 'Nombre del proyecto.' },
+        ubicacion: { type: 'string', description: 'Comuna/ciudad del proyecto.' },
+        tipologia: { type: 'string', description: 'Tipología o modelo de la unidad (ej: 3D2B, Modelo S5).' },
+        dormitorios: { type: 'string', description: 'Nº de dormitorios (opcional).' },
+        banos: { type: 'string', description: 'Nº de baños (opcional).' },
+        superficie_m2: { type: 'string', description: 'Superficie en m² (opcional).' },
+        precio_uf: { type: 'number', description: 'Precio de la unidad en UF (obtenido del sitio).' },
+        cliente_nombre: { type: 'string', description: 'Nombre del cliente.' },
+        cliente_email: { type: 'string', description: 'Email del cliente donde enviar el PDF.' },
+        url: { type: 'string', description: 'URL de la ficha del proyecto (opcional).' },
+      },
+      required: ['proyecto', 'precio_uf', 'cliente_email'],
       additionalProperties: false,
     },
   },
@@ -89,6 +112,12 @@ export async function runTool(name, input) {
         return `UF ${input.monto_uf} = $${clp} CLP (valor UF ${uf.fecha}: $${Number(
           uf.valor
         ).toLocaleString('es-CL')}).`;
+      }
+      case 'enviar_cotizacion_pdf': {
+        const r = await enviarCotizacionPorEmail(input);
+        return `Cotización ${r.cotizacion.folio} generada (${r.filename}) y enviada por email a ${input.cliente_email} (vía ${r.email.via}). Total: $${Math.round(
+          r.cotizacion.precio_clp
+        ).toLocaleString('es-CL')} CLP (UF ${r.cotizacion.precio_uf}).`;
       }
       case 'navegar_sitio': {
         const d = await navegar(input.ruta);
