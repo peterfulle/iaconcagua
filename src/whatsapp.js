@@ -146,6 +146,15 @@ export async function startWhatsApp(onMessage) {
   sock.ev.on('connection.update', () => {});
   sock.ws?.on?.('error', (e) => console.error('WS error:', e?.message || e));
 
+  // Acuses de entrega: 0=pending 1=servidor 2=ENTREGADO 3=leído 4=reproducido.
+  const ACK = { 0: 'pendiente', 1: 'servidor', 2: 'ENTREGADO', 3: 'leído', 4: 'reproducido' };
+  sock.ev.on('messages.update', (updates) => {
+    for (const u of updates) {
+      const s = u.update?.status;
+      if (s !== undefined) console.log(`📬 ack ${u.key?.id}: ${ACK[s] || s}`);
+    }
+  });
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return;
     for (const m of messages) {
