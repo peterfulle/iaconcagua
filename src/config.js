@@ -25,8 +25,13 @@ export const config = {
 
   headless: bool(process.env.HEADLESS, true),
 
-  // Desactiva el canal WhatsApp (útil en producción mientras se usa chat web / API oficial).
+  // Desactiva el canal WhatsApp por Baileys (número personal). Con Zavu se deja true.
   disableWhatsapp: bool(process.env.DISABLE_WHATSAPP, false),
+
+  // WhatsApp Business API vía Zavu (proveedor oficial, sin baneos).
+  zavuApiKey: process.env.ZAVU_API_KEY || '',
+  zavuSender: process.env.ZAVU_SENDER || '', // ID del sender (snd_...) o número
+  zavuWebhookSecret: process.env.ZAVU_WEBHOOK_SECRET || '',
 
   // Si defines PAIR_NUMBER (número con código de país, solo dígitos, ej: 56912345678)
   // se vincula con un código de 8 dígitos en lugar de QR.
