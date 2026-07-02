@@ -25,14 +25,31 @@ async function getChromium() {
   }
 }
 
+function parseProxy() {
+  if (!config.proxyUrl) return undefined;
+  try {
+    const u = new URL(config.proxyUrl);
+    return {
+      server: `${u.protocol}//${u.host}`,
+      username: decodeURIComponent(u.username || ''),
+      password: decodeURIComponent(u.password || ''),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 async function launch() {
   const chromium = await getChromium();
+  const proxy = parseProxy();
+  if (proxy) console.log('🌐 Scraper usando proxy residencial');
   const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
     headless: config.headless,
     userAgent: UA,
     viewport: { width: 1366, height: 900 },
     locale: 'es-CL',
     timezoneId: 'America/Santiago',
+    proxy,
     args: [
       '--disable-blink-features=AutomationControlled',
       '--no-sandbox',
