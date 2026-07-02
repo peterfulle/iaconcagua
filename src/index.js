@@ -15,11 +15,19 @@ import { startWhatsApp, getWaStatus } from './whatsapp.js';
 import { responder } from './agent.js';
 import { splitMessage, typingDelay } from './humanize.js';
 import { closeBrowser } from './scraper/browser.js';
+import { handleAdmin } from './admin/server.js';
 
 // Servidor de salud: Render (Web Service) necesita un puerto abierto.
 // Además muestra el estado de WhatsApp y el código de vinculación.
 function startHealthServer() {
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
+    try {
+      if (await handleAdmin(req, res)) return;
+    } catch (e) {
+      console.error('admin error:', e.message);
+      if (!res.headersSent) { res.writeHead(500); res.end('error'); }
+      return;
+    }
     const wa = getWaStatus();
     if (req.url === '/logo.png' && LOGO_PNG) {
       res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'public, max-age=86400' });

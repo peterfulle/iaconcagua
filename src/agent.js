@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from './config.js';
 import { toolDefs, runTool } from './tools/index.js';
+import { addMessage } from './crm/db.js';
 
 const client = new Anthropic({
   apiKey: config.anthropicApiKey,
@@ -17,6 +18,7 @@ REGLAS DE DATOS (críticas):
 - Antes de dar precios o cotizar, usa 'ver_proyecto'. Para saber qué proyectos hay o encontrar un slug, usa 'listar_proyectos'.
 - Los precios del sitio están en UF. Cuando cotices, convierte a pesos chilenos con 'cotizar' o 'valor_uf' y muestra ambos (UF y CLP), aclarando que la UF varía a diario y que el valor final se confirma con un ejecutivo.
 - Puedes enviar una COTIZACIÓN FORMAL EN PDF al correo del cliente con 'enviar_cotizacion_pdf'. Ofrécelo cuando muestres precios o cuando el cliente lo pida. Necesitas el precio en UF (de 'ver_proyecto'), el email y ojalá el nombre del cliente; pídeselos con naturalidad. Tras enviarlo, confírmale que le llegó a su correo.
+- CAPTURA DE DATOS (CRM): apenas el cliente te diga su nombre, teléfono, email, RUT, presupuesto, comuna o proyecto de interés, guárdalo con 'guardar_lead' (sin interrumpir la conversación). Así el equipo comercial puede hacer seguimiento. Pide estos datos con naturalidad cuando tenga sentido (por ejemplo, para enviar una cotización o coordinar una visita).
 - Si una herramienta falla o no encuentra el dato, dilo con naturalidad y ofrece alternativas; nunca rellenes con datos inventados.
 
 ESTILO DE CONVERSACIÓN:
@@ -62,10 +64,13 @@ function textoDe(content) {
 /**
  * Procesa un mensaje del cliente y devuelve la respuesta de la asesora (string).
  */
-export async function responder(chatId, textoUsuario) {
+export async function responder(chatId, textoUsuario, canal = 'whatsapp') {
   const history = getHistory(chatId);
   history.push({ role: 'user', content: textoUsuario });
   trim(history);
+  try { addMessage(chatId, canal, 'user', textoUsuario); } catch { /* ok */ }
+
+  const ctx = { chatId, canal };
 
   for (let paso = 0; paso < 8; paso++) {
     // Streaming + finalMessage: evita cortes ("Premature close") en respuestas largas.
@@ -86,7 +91,7 @@ export async function responder(chatId, textoUsuario) {
       const toolUses = resp.content.filter((b) => b.type === 'tool_use');
       const results = [];
       for (const tu of toolUses) {
-        const out = await runTool(tu.name, tu.input || {});
+        const out = await runTool(tu.name, tu.input || {}, ctx);
         results.push({ type: 'tool_result', tool_use_id: tu.id, content: out });
       }
       history.push({ role: 'user', content: results });
@@ -96,6 +101,7 @@ export async function responder(chatId, textoUsuario) {
     // Respuesta final
     const texto = textoDe(resp.content);
     trim(history);
+    if (texto) { try { addMessage(chatId, canal, 'agent', texto); } catch { /* ok */ } }
     return texto || 'Dame un segundo 🙌';
   }
 

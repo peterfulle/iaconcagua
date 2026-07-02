@@ -40,6 +40,17 @@ export const config = {
   // URL pública del servicio (para servir el logo en los emails).
   publicUrl: process.env.PUBLIC_URL || 'https://iaconcagua-chatbot.onrender.com',
 
+  // CRM / base de datos. En Render apúntalo al disco persistente: /data/crm.sqlite
+  dbPath: process.env.DB_PATH || path.join(root, 'crm.sqlite'),
+
+  // Panel admin
+  adminUser: process.env.ADMIN_USER || 'admin',
+  adminPass: process.env.ADMIN_PASS || 'admin',
+  adminSecret: process.env.ADMIN_SECRET || 'aconcagua-crm-secret-cambia-esto',
+
+  // Email del ejecutivo para avisos de lead caliente (usa el emailFrom si vacío).
+  executiveEmail: process.env.EXECUTIVE_EMAIL || '',
+
   // Proxy residencial/móvil para el socket de WhatsApp (evita el soft-ban de
   // datacenter). Ej: socks5://user:pass@host:puerto  o  http://user:pass@host:puerto
   proxyUrl: process.env.PROXY_URL || '',

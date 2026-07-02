@@ -1,6 +1,8 @@
 import { listarProyectos, verProyecto, navegar } from '../scraper/iaconcagua.js';
 import { valorUF, ufAClp } from './uf.js';
 import { enviarCotizacionPorEmail } from '../quote/index.js';
+import { upsertLeadData, marcarCotizacion } from '../crm/db.js';
+import { avisarLeadCaliente } from '../crm/notify.js';
 
 // Definiciones que ve Claude (function calling).
 export const toolDefs = [
@@ -46,6 +48,26 @@ export const toolDefs = [
     },
   },
   {
+    name: 'guardar_lead',
+    description:
+      'Guarda o actualiza los datos del cliente (lead) en el CRM a medida que los vas conociendo en la conversación: nombre, RUT, teléfono, email, proyecto/comuna de interés, presupuesto en UF, dormitorios y notas. Llámalo apenas el cliente entregue cualquiera de estos datos. Sirve para que el equipo comercial haga seguimiento. No hace falta tener todos los campos.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        nombre: { type: 'string' },
+        rut: { type: 'string' },
+        telefono: { type: 'string' },
+        email: { type: 'string' },
+        proyecto_interes: { type: 'string', description: 'Proyecto que le interesa.' },
+        comuna: { type: 'string', description: 'Comuna/ciudad de interés.' },
+        presupuesto_uf: { type: 'number', description: 'Presupuesto aproximado en UF.' },
+        dormitorios: { type: 'string' },
+        notas: { type: 'string', description: 'Notas útiles para el ejecutivo.' },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'enviar_cotizacion_pdf',
     description:
       'Genera una cotización formal en PDF (con el precio en UF convertido a pesos usando el valor UF del día) y la envía por email al cliente, con la marca de Inmobiliaria Aconcagua. Úsalo cuando el cliente pide una cotización formal o que se la envíes por correo. Antes debes tener el precio en UF (desde ver_proyecto) y el email del cliente. Pregunta el email y el nombre si no los tienes.',
@@ -84,10 +106,15 @@ export const toolDefs = [
   },
 ];
 
-// Ejecutores reales de cada tool. Devuelven texto (string) para el tool_result.
-export async function runTool(name, input) {
+// Ejecutores reales de cada tool. `ctx` = { chatId, canal }.
+export async function runTool(name, input, ctx = {}) {
   try {
     switch (name) {
+      case 'guardar_lead': {
+        if (!ctx.chatId) return 'Contexto de chat no disponible; no guardé el lead.';
+        const lead = upsertLeadData(ctx.chatId, ctx.canal || 'whatsapp', input);
+        return `Datos del cliente guardados en el CRM (lead #${lead.id}).`;
+      }
       case 'listar_proyectos': {
         const p = await listarProyectos();
         if (!p.length) return 'No se pudieron leer proyectos del sitio en este momento.';
@@ -117,6 +144,19 @@ export async function runTool(name, input) {
       }
       case 'enviar_cotizacion_pdf': {
         const r = await enviarCotizacionPorEmail(input);
+        // Registra en el CRM: datos del cliente + marca como lead caliente + avisa.
+        if (ctx.chatId) {
+          upsertLeadData(ctx.chatId, ctx.canal || 'whatsapp', {
+            nombre: input.cliente_nombre,
+            rut: input.cliente_rut,
+            telefono: input.cliente_telefono,
+            email: input.cliente_email,
+            proyecto_interes: input.proyecto,
+            comuna: input.ubicacion,
+          });
+          const lead = marcarCotizacion(ctx.chatId, ctx.canal || 'whatsapp');
+          avisarLeadCaliente(lead, 'Pidió cotización').catch(() => {});
+        }
         return `Cotización ${r.cotizacion.folio} generada (${r.filename}) y enviada por email a ${input.cliente_email} (vía ${r.email.via}). Total: $${Math.round(
           r.cotizacion.precio_clp
         ).toLocaleString('es-CL')} CLP (UF ${r.cotizacion.precio_uf}).`;
