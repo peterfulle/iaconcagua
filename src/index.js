@@ -109,7 +109,11 @@ async function main() {
   console.log(`   Modelo: ${config.model} (effort ${config.effort})`);
   console.log(`   Navegador headless: ${config.headless}`);
   startHealthServer();
-  await startWhatsApp(onMessage);
+  if (config.disableWhatsapp) {
+    console.log('📴 WhatsApp deshabilitado (DISABLE_WHATSAPP=true). Solo chat web + CRM.');
+  } else {
+    await startWhatsApp(onMessage);
+  }
 }
 
 async function shutdown() {

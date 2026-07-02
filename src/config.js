@@ -25,6 +25,9 @@ export const config = {
 
   headless: bool(process.env.HEADLESS, true),
 
+  // Desactiva el canal WhatsApp (útil en producción mientras se usa chat web / API oficial).
+  disableWhatsapp: bool(process.env.DISABLE_WHATSAPP, false),
+
   // Si defines PAIR_NUMBER (número con código de país, solo dígitos, ej: 56912345678)
   // se vincula con un código de 8 dígitos en lugar de QR.
   pairNumber: String(process.env.PAIR_NUMBER || '').replace(/\D/g, ''),
