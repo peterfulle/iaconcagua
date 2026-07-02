@@ -1,5 +1,6 @@
 import { rm } from 'node:fs/promises';
 import qrcode from 'qrcode-terminal';
+import QR from 'qrcode';
 import pino from 'pino';
 import { config } from './config.js';
 import baileys, {
@@ -34,8 +35,14 @@ const logger = pino({ level: 'silent' });
 // Estado observable (para el endpoint de salud).
 let _status = 'iniciando';
 let _pairingCode = null;
+let _qrDataUrl = null;
 export function getWaStatus() {
-  return { status: _status, pairingCode: _pairingCode, number: config.pairNumber || null };
+  return {
+    status: _status,
+    pairingCode: _pairingCode,
+    qrDataUrl: _qrDataUrl,
+    number: config.pairNumber || null,
+  };
 }
 
 /**
@@ -92,12 +99,19 @@ export async function startWhatsApp(onMessage) {
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
     if (qr && !usarCodigo) {
+      _status = 'esperando_qr';
       console.log('\n📱 Escanea este QR con WhatsApp (Dispositivos vinculados):\n');
       qrcode.generate(qr, { small: true });
+      QR.toDataURL(qr, { margin: 1, width: 320 })
+        .then((url) => {
+          _qrDataUrl = url;
+        })
+        .catch(() => {});
     }
     if (connection === 'open') {
       _status = 'conectado';
       _pairingCode = null;
+      _qrDataUrl = null;
       console.log('✅ WhatsApp conectado. El agente está en línea.\n');
     }
     if (connection === 'close') {

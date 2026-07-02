@@ -14,13 +14,18 @@ function startHealthServer() {
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ ok: true, wa }));
     }
-    const codigoHtml =
-      wa.status === 'esperando_vinculacion' && wa.pairingCode
-        ? `<p>📲 <b>Vincular con número</b> (+${wa.number})<br>
+    let codigoHtml = '';
+    if (wa.status === 'esperando_vinculacion' && wa.pairingCode) {
+      codigoHtml = `<p>📲 <b>Vincular con número</b> (+${wa.number})<br>
              En WhatsApp → Dispositivos vinculados → Vincular un dispositivo →
              "Vincular con número de teléfono" y escribe:</p>
-           <p style="font-size:2rem;letter-spacing:.2rem"><b>${wa.pairingCode}</b></p>`
-        : '';
+           <p style="font-size:2rem;letter-spacing:.2rem"><b>${wa.pairingCode}</b></p>`;
+    } else if (wa.qrDataUrl) {
+      codigoHtml = `<p>📱 <b>Escanea este QR</b><br>
+             En WhatsApp → Dispositivos vinculados → Vincular un dispositivo → (escanear):</p>
+           <img src="${wa.qrDataUrl}" width="320" height="320" alt="QR" style="image-rendering:pixelated">
+           <p style="color:#888">El QR se renueva solo cada ~20s; recarga si expira.</p>`;
+    }
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(`<!doctype html><meta charset="utf-8">
       <title>Agente Aconcagua</title>
