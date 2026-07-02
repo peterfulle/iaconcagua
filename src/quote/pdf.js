@@ -110,6 +110,8 @@ export async function generarCotizacionPDF(datos) {
     <h2>Cliente</h2>
     <table class="cliente">
       <tr><td class="k">Nombre</td><td class="v">${esc(datos.cliente_nombre || '—')}</td></tr>
+      ${datos.cliente_rut ? `<tr><td class="k">RUT</td><td class="v">${esc(datos.cliente_rut)}</td></tr>` : ''}
+      ${datos.cliente_telefono ? `<tr><td class="k">Teléfono</td><td class="v">${esc(datos.cliente_telefono)}</td></tr>` : ''}
       <tr><td class="k">Email</td><td class="v">${esc(datos.cliente_email || '—')}</td></tr>
     </table>
 

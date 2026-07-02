@@ -60,6 +60,8 @@ export const toolDefs = [
         superficie_m2: { type: 'string', description: 'Superficie en m² (opcional).' },
         precio_uf: { type: 'number', description: 'Precio de la unidad en UF (obtenido del sitio).' },
         cliente_nombre: { type: 'string', description: 'Nombre del cliente.' },
+        cliente_rut: { type: 'string', description: 'RUT del cliente (opcional).' },
+        cliente_telefono: { type: 'string', description: 'Teléfono del cliente (opcional).' },
         cliente_email: { type: 'string', description: 'Email del cliente donde enviar el PDF.' },
         url: { type: 'string', description: 'URL de la ficha del proyecto (opcional).' },
       },
